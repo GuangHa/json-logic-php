@@ -421,4 +421,9 @@ class JsonLogic
     {
         self::$custom_operations[$name] = $callable;
     }
+
+    public static function test_function()
+    {
+        return true;
+    }
 }
