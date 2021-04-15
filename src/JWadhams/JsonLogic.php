@@ -40,7 +40,7 @@ class JsonLogic
         return (bool)$logic;
     }
 
-    public static function apply($logic = [], $data = [])
+    public static function apply($logic = [], $data = [], $cumulative = false, $recursive = true)
     {
         //I'd rather work with array syntax
         if (is_object($logic)) {
@@ -49,6 +49,18 @@ class JsonLogic
 
         if (! self::is_logic($logic)) {
             if (is_array($logic)) {
+                if ($cumulative) {
+                    $modifiedData = $data;
+                    $count = 0;
+                    foreach($logic as $rule) {
+                        $modifiedData = self::apply($rule, $modifiedData);
+                        $count++;
+                        if (!is_array($modifiedData)) {
+                            return 'Rule #'.$count.' does not return objects!';
+                        }
+                    }
+                    return $modifiedData;
+                }
                 //Could be an array of logic statements. Only one way to find out.
                 return array_map(function ($l) use ($data) {
                     return self::apply($l, $data);
@@ -208,6 +220,42 @@ class JsonLogic
             },
             'substr' => function () {
                 return call_user_func_array('substr', func_get_args());
+            },
+            'cartesian' => function ($a, $b) use ($recursive) {
+                if ($recursive) {
+                    $result = array();
+                    if (is_array($a) && is_array($b)) {
+                        foreach ($a as $itemA) {
+                            foreach ($a as $itemB) {
+                                $res = array_merge([$itemA], [$itemB]);
+                                $result[] = $res;
+                            }
+                        }
+                    }
+                    return $result;
+                } else {
+                    return $a;
+                }
+            },
+            'modify' => function ($a, $b, $c) {
+                if (is_object($a)) {
+                    $a->{$b} = $c;
+                } else {
+                    foreach ($a as $item) {
+                        $item->{$b} = $c;
+                    }
+                }
+                return $a;
+            },
+            'remove' => function ($a, $b) {
+                if (is_object($a)) {
+                    unset($a->{$b});
+                } else {
+                    foreach ($a as $item) {
+                        unset($item->{$b});
+                    }
+                }
+                return $a;
             }
         ];
 
@@ -422,8 +470,4 @@ class JsonLogic
         self::$custom_operations[$name] = $callable;
     }
 
-    public static function test_function()
-    {
-        return true;
-    }
 }
