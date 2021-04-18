@@ -40,7 +40,7 @@ class JsonLogic
         return (bool)$logic;
     }
 
-    public static function apply($logic = [], $data = [], $cumulative = false, $recursive = true)
+    public static function apply($logic = [], $data = [], $cumulative = false, $recursive = true, $originalData = [])
     {
         //I'd rather work with array syntax
         if (is_object($logic)) {
@@ -53,11 +53,11 @@ class JsonLogic
                     $modifiedData = $data;
                     $count = 0;
                     foreach($logic as $rule) {
-                        $modifiedData = self::apply($rule, $modifiedData);
+                        $modifiedData = self::apply($rule, $modifiedData, $cumulative, $recursive, $originalData);
                         $count++;
-                        if (!is_array($modifiedData)) {
-                            return 'Rule #'.$count.' does not return objects!';
-                        }
+//                        if (!is_array($modifiedData) && !is_object($modifiedData)) {
+//                            return 'Rule #'.$count.' does not return objects!';
+//                        }
                     }
                     return $modifiedData;
                 }
@@ -130,10 +130,14 @@ class JsonLogic
                 error_log($a);
                 return $a;
             },
-            'var' => function ($a = null, $default = null) use ($data) {
-                if ($a === null or $a === "") {
+            'var' => function ($a = null, $default = null, $useOriginalData = false) use ($data, $recursive, $originalData) {
+                if ($useOriginalData) {
+                    return $originalData;
+                }
+                if ($a === null or $a === "" or !$recursive) {
                     return $data;
                 }
+
                 //Descending into data using dot-notation
                 //This is actually safe for integer indexes, PHP treats $a["1"] exactly like $a[1]
                 foreach (explode('.', $a) as $prop) {
@@ -239,10 +243,14 @@ class JsonLogic
             },
             'modify' => function ($a, $b, $c) {
                 if (is_object($a)) {
+//                    if (property_exists($a, $b)) {
                     $a->{$b} = $c;
+//                    }
                 } else {
                     foreach ($a as $item) {
+//                        if (is_object($item) && property_exists($item, $b)) {
                         $item->{$b} = $c;
+//                        }
                     }
                 }
                 return $a;
@@ -256,6 +264,14 @@ class JsonLogic
                     }
                 }
                 return $a;
+            },
+            'group' => function ($a, $b, $ignoreRecursive = false) use ($recursive) {
+                if ($recursive || $ignoreRecursive) {
+                    $group[$b] = $a;
+                    return $group;
+                } else {
+                    return $a;
+                }
             }
         ];
 
@@ -293,6 +309,9 @@ class JsonLogic
             }
             return null;
         } elseif ($op === "filter") {
+            if (!$recursive) {
+                return $data;
+            }
             $scopedData = static::apply($values[0], $data);
             $scopedLogic = $values[1];
 
@@ -368,8 +387,8 @@ class JsonLogic
         }
 
         //Recursion!
-        $values = array_map(function ($value) use ($data) {
-            return self::apply($value, $data);
+        $values = array_map(function ($value) use ($data, $recursive, $originalData) {
+            return self::apply($value, $data, false, $recursive, $originalData);
         }, $values);
 
         return call_user_func_array($operation, $values);
