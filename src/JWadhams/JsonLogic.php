@@ -272,6 +272,16 @@ class JsonLogic
                 } else {
                     return $a;
                 }
+            },
+            'sqrt' => function($a) {
+                return sqrt($a);
+            },
+            'join' => function() {
+                $joinedArray = [];
+                foreach(func_get_args() as $argument) {
+                    $joinedArray[] = $argument;
+                }
+                return $joinedArray;
             }
         ];
 
@@ -300,19 +310,19 @@ class JsonLogic
             given 0 parameters, return NULL (not great practice, but there was no Else)
             */
             for ($i = 0 ; $i < count($values) - 1 ; $i += 2) {
-                if (static::truthy(static::apply($values[$i], $data))) {
-                    return static::apply($values[$i+1], $data);
+                if (static::truthy(static::apply($values[$i], $data, false, true, $originalData))) {
+                    return static::apply($values[$i+1], $data, false, true, $originalData);
                 }
             }
             if (count($values) === $i+1) {
-                return static::apply($values[$i], $data);
+                return static::apply($values[$i], $data, false, true, $originalData);
             }
             return null;
         } elseif ($op === "filter") {
             if (!$recursive) {
                 return $data;
             }
-            $scopedData = static::apply($values[0], $data);
+            $scopedData = static::apply($values[0], $data, false, true, $originalData);
             $scopedLogic = $values[1];
 
             if (!$scopedData || !is_array($scopedData)) {
@@ -322,12 +332,12 @@ class JsonLogic
             // that return truthy when passed to the logic in the second argument.
             // For parity with JavaScript, reindex the returned array
             return array_values(
-                array_filter($scopedData, function ($datum) use ($scopedLogic) {
-                    return static::truthy(static::apply($scopedLogic, $datum));
+                array_filter($scopedData, function ($datum) use ($scopedLogic, $originalData) {
+                    return static::truthy(static::apply($scopedLogic, $datum, false, true, $originalData));
                 })
             );
         } elseif ($op === "map") {
-            $scopedData = static::apply($values[0], $data);
+            $scopedData = static::apply($values[0], $data, false, true, $originalData);
             $scopedLogic = $values[1];
 
             if (!$scopedData || !is_array($scopedData)) {
@@ -335,13 +345,13 @@ class JsonLogic
             }
 
             return array_map(
-                function ($datum) use ($scopedLogic) {
-                    return static::apply($scopedLogic, $datum);
+                function ($datum) use ($scopedLogic, $originalData) {
+                    return static::apply($scopedLogic, $datum, false, true, $originalData);
                 },
                 $scopedData
             );
         } elseif ($op === "reduce") {
-            $scopedData = static::apply($values[0], $data);
+            $scopedData = static::apply($values[0], $data, false, true, $originalData);
             $scopedLogic = $values[1];
             $initial = isset($values[2]) ? $values[2] : null;
 
@@ -351,10 +361,10 @@ class JsonLogic
 
             return array_reduce(
                 $scopedData,
-                function ($accumulator, $current) use ($scopedLogic) {
+                function ($accumulator, $current) use ($scopedLogic, $originalData) {
                     return static::apply(
                         $scopedLogic,
-                        ['current'=>$current, 'accumulator'=>$accumulator]
+                        ['current'=>$current, 'accumulator'=>$accumulator], false, true, $originalData
                     );
                 },
                 $initial
