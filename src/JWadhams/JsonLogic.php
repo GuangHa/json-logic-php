@@ -282,6 +282,27 @@ class JsonLogic
                     $joinedArray[] = $argument;
                 }
                 return $joinedArray;
+            },
+            'create' => function() use ($recursive) {
+                $data = func_get_arg(0);
+                if ($recursive) {
+                    $argumentNumber = 0;
+                    $object = new \stdClass();
+                    foreach (func_get_args() as $argument) {
+                        $argumentNumber++;
+                        if ($argumentNumber == 1) {
+                            continue;
+                        }
+
+                        // key and value => size = 2
+                        if (count($argument) == 2) {
+                            $key = $argument[0];
+                            $object->$key = $argument[1];
+                        }
+                    }
+                    array_push($data, $object);
+                }
+                return $data;
             }
         ];
 
