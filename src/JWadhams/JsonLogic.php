@@ -276,7 +276,10 @@ class JsonLogic
             'sqrt' => function($a) {
                 return sqrt($a);
             },
-            'join' => function() {
+            'join' => function() use ($data, $recursive) {
+                if (!$recursive) {
+                    return $data;
+                }
                 $joinedArray = [];
                 foreach(func_get_args() as $argument) {
                     $joinedArray[] = $argument;
@@ -303,6 +306,15 @@ class JsonLogic
                     array_push($data, $object);
                 }
                 return $data;
+            },
+            'delete' => function($a, $b, $c) {
+                $result = [];
+                foreach ($a as $key => $item) {
+                    if (!property_exists($item, $b) || $item->$b != $c) {
+                        $result[] = $item;
+                    }
+                }
+                return $result;
             }
         ];
 
