@@ -62,8 +62,8 @@ class JsonLogic
                     return $modifiedData;
                 }
                 //Could be an array of logic statements. Only one way to find out.
-                return array_map(function ($l) use ($data) {
-                    return self::apply($l, $data);
+                return array_map(function ($l) use ($data, $originalData) {
+                    return self::apply($l, $data, false, true, $originalData);
                 }, $logic);
             } else {
                 return $logic;
@@ -289,6 +289,9 @@ class JsonLogic
             'create' => function() use ($recursive) {
                 $data = func_get_arg(0);
                 if ($recursive) {
+                    if (empty($data)) {
+                        $data = [];
+                    }
                     $argumentNumber = 0;
                     $object = new \stdClass();
                     foreach (func_get_args() as $argument) {
