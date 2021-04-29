@@ -53,11 +53,8 @@ class JsonLogic
                     $modifiedData = $data;
                     $count = 0;
                     foreach($logic as $rule) {
-                        $modifiedData = self::apply($rule, $modifiedData, $cumulative, $recursive, $originalData);
+                        $modifiedData = self::apply($rule, $modifiedData, false, $recursive, $originalData);
                         $count++;
-//                        if (!is_array($modifiedData) && !is_object($modifiedData)) {
-//                            return 'Rule #'.$count.' does not return objects!';
-//                        }
                     }
                     return $modifiedData;
                 }
@@ -200,6 +197,9 @@ class JsonLogic
                 return min(func_get_args());
             },
             '+' => function () {
+                if (is_array(func_get_arg(0))) {
+                    return array_sum(func_get_arg(0));
+                }
                 return array_sum(func_get_args());
             },
             '-' => function ($a, $b=null) {
@@ -273,7 +273,10 @@ class JsonLogic
                     return $a;
                 }
             },
-            'sqrt' => function($a) {
+            'sqrt' => function($a, $precision = null) {
+                if (!is_null($precision) && is_numeric($precision)) {
+                    return round(sqrt($a), $precision);
+                }
                 return sqrt($a);
             },
             'join' => function() use ($data, $recursive) {
