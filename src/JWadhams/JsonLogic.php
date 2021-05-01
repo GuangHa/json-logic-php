@@ -127,11 +127,11 @@ class JsonLogic
                 error_log($a);
                 return $a;
             },
-            'var' => function ($a = null, $default = null, $useOriginalData = false) use ($data, $recursive, $originalData) {
+            'var' => function ($a = null, $default = null, $useOriginalData = false) use ($data, $originalData) {
                 if ($useOriginalData) {
-                    return $originalData;
+                    $data = $originalData;
                 }
-                if ($a === null or $a === "" or !$recursive) {
+                if ($a === null or $a === "") {
                     return $data;
                 }
 
@@ -155,9 +155,14 @@ class JsonLogic
                 which typically happens if it's actually acting on the output of another command
                 (like IF or MERGE)
                 */
-                $values = func_get_args();
-                if (!static::is_logic($values) and isset($values[0]) and is_array($values[0])) {
-                    $values = $values[0];
+                if (is_bool(func_get_arg(0)) && func_num_args() > 1) {
+                    $data = func_get_arg(1);
+                    $values = func_get_arg(2);
+                } else {
+                    $values = func_get_args();
+                    if (!static::is_logic($values) and isset($values[0]) and is_array($values[0])) {
+                        $values = $values[0];
+                    }
                 }
 
                 $missing = [];
@@ -242,15 +247,64 @@ class JsonLogic
                 }
             },
             'modify' => function ($a, $b, $c) {
+                $properties = explode('.', $b);
                 if (is_object($a)) {
-//                    if (property_exists($a, $b)) {
-                    $a->{$b} = $c;
-//                    }
+                    if (count($properties) > 1) {
+                        $data = $a;
+                        foreach ($properties as $key => $prop) {
+                            if ($key !== array_key_last($properties)) {
+                                if (is_object($data) && property_exists($data, $prop)) {
+                                    $data = $data->{$prop};
+                                } else {
+                                    if (array_key_exists($prop, $data)) {
+                                        $data = $data[$prop];
+                                    }
+                                }
+                            }
+                        }
+                        if (is_array($data)) {
+                            $newData = [];
+                            foreach ($data as $entry) {
+                                $entry->{end($properties)} = $c;
+                                $newData[] = $entry;
+                            }
+                        } else {
+                            $data->{end($properties)} = $c;
+                            $newData = $data;
+                        }
+                        $a->{reset($properties)} = $newData;
+                    } else {
+                        $a->{$b} = $c;
+                    }
                 } else {
-                    foreach ($a as $item) {
-//                        if (is_object($item) && property_exists($item, $b)) {
-                        $item->{$b} = $c;
-//                        }
+                    foreach ($a as $mainkey => $item) {
+                        if (count($properties) > 1) {
+                            $data = $item;
+                            foreach ($properties as $key => $prop) {
+                                if ($key !== array_key_last($properties)) {
+                                    if (is_object($data) && property_exists($data, $prop)) {
+                                        $data = $data->{$prop};
+                                    } else {
+                                        if (array_key_exists($prop, $data)) {
+                                            $data = $data[$prop];
+                                        }
+                                    }
+                                }
+                            }
+                            if (is_array($data)) {
+                                $newData = [];
+                                foreach ($data as $entry) {
+                                    $entry->{end($properties)} = $c;
+                                    $newData[] = $entry;
+                                }
+                            } else {
+                                $data->{end($properties)} = $c;
+                                $newData = $data;
+                            }
+                            $item->{reset($properties)} = $newData;
+                        } else {
+                            $item->{$b} = $c;
+                        }
                     }
                 }
                 return $a;
@@ -266,12 +320,12 @@ class JsonLogic
                 return $a;
             },
             'group' => function ($a, $b, $ignoreRecursive = false) use ($recursive) {
-                if ($recursive || $ignoreRecursive) {
-                    $group[$b] = $a;
-                    return $group;
-                } else {
-                    return $a;
-                }
+//                if ($recursive || $ignoreRecursive) {
+                $group[$b] = $a;
+                return $group;
+//                } else {
+//                    return $a;
+//                }
             },
             'sqrt' => function($a, $precision = null) {
                 if (!is_null($precision) && is_numeric($precision)) {
@@ -289,28 +343,26 @@ class JsonLogic
                 }
                 return $joinedArray;
             },
-            'create' => function() use ($recursive) {
+            'create' => function() {
                 $data = func_get_arg(0);
-                if ($recursive) {
-                    if (empty($data)) {
-                        $data = [];
-                    }
-                    $argumentNumber = 0;
-                    $object = new \stdClass();
-                    foreach (func_get_args() as $argument) {
-                        $argumentNumber++;
-                        if ($argumentNumber == 1) {
-                            continue;
-                        }
-
-                        // key and value => size = 2
-                        if (count($argument) == 2) {
-                            $key = $argument[0];
-                            $object->$key = $argument[1];
-                        }
-                    }
-                    array_push($data, $object);
+                if (empty($data)) {
+                    $data = [];
                 }
+                $argumentNumber = 0;
+                $object = new \stdClass();
+                foreach (func_get_args() as $argument) {
+                    $argumentNumber++;
+                    if ($argumentNumber == 1) {
+                        continue;
+                    }
+
+                    // key and value => size = 2
+                    if (count($argument) == 2) {
+                        $key = $argument[0];
+                        $object->$key = $argument[1];
+                    }
+                }
+                array_push($data, $object);
                 return $data;
             },
             'delete' => function($a, $b, $c) {
@@ -321,6 +373,12 @@ class JsonLogic
                     }
                 }
                 return $result;
+            },
+            'count' => function($a) {
+                if (is_array($a)) {
+                    return count($a);
+                }
+                return 1;
             }
         ];
 
