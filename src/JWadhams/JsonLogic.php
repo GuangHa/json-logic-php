@@ -320,12 +320,8 @@ class JsonLogic
                 return $a;
             },
             'group' => function ($a, $b, $ignoreRecursive = false) use ($recursive) {
-//                if ($recursive || $ignoreRecursive) {
                 $group[$b] = $a;
                 return $group;
-//                } else {
-//                    return $a;
-//                }
             },
             'sqrt' => function($a, $precision = null) {
                 if (!is_null($precision) && is_numeric($precision)) {
@@ -333,13 +329,14 @@ class JsonLogic
                 }
                 return sqrt($a);
             },
-            'join' => function() use ($data, $recursive) {
-                if (!$recursive) {
-                    return $data;
-                }
+            'join' => function() use ($data) {
                 $joinedArray = [];
                 foreach(func_get_args() as $argument) {
-                    $joinedArray[] = $argument;
+                    if (is_array($argument)) {
+                        $joinedArray = array_merge($joinedArray, $argument);
+                    } else {
+                        $joinedArray[] = $argument;
+                    }
                 }
                 return $joinedArray;
             },
