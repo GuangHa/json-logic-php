@@ -40,7 +40,7 @@ class JsonLogic
         return (bool)$logic;
     }
 
-    public static function apply($logic = [], $data = [], $cumulative = false, $recursive = true, $originalData = [])
+    public static function apply($logic = [], $data = [], $cumulative = false, $originalData = [])
     {
         //I'd rather work with array syntax
         if (is_object($logic)) {
@@ -53,14 +53,14 @@ class JsonLogic
                     $modifiedData = $data;
                     $count = 0;
                     foreach($logic as $rule) {
-                        $modifiedData = self::apply($rule, $modifiedData, false, $recursive, $originalData);
+                        $modifiedData = self::apply($rule, $modifiedData, false, $originalData);
                         $count++;
                     }
                     return $modifiedData;
                 }
                 //Could be an array of logic statements. Only one way to find out.
                 return array_map(function ($l) use ($data, $originalData) {
-                    return self::apply($l, $data, false, true, $originalData);
+                    return self::apply($l, $data, false, $originalData);
                 }, $logic);
             } else {
                 return $logic;
@@ -230,21 +230,17 @@ class JsonLogic
             'substr' => function () {
                 return call_user_func_array('substr', func_get_args());
             },
-            'cartesian' => function ($a, $b) use ($recursive) {
-                if ($recursive) {
-                    $result = array();
-                    if (is_array($a) && is_array($b)) {
-                        foreach ($a as $itemA) {
-                            foreach ($a as $itemB) {
-                                $res = array_merge([$itemA], [$itemB]);
-                                $result[] = $res;
-                            }
+            'cartesian' => function ($a, $b) {
+                $result = array();
+                if (is_array($a) && is_array($b)) {
+                    foreach ($a as $itemA) {
+                        foreach ($a as $itemB) {
+                            $res = array_merge([$itemA], [$itemB]);
+                            $result[] = $res;
                         }
                     }
-                    return $result;
-                } else {
-                    return $a;
                 }
+                return $result;
             },
             'modify' => function ($a, $b, $c) {
                 $properties = explode('.', $b);
@@ -319,7 +315,7 @@ class JsonLogic
                 }
                 return $a;
             },
-            'group' => function ($a, $b, $ignoreRecursive = false) use ($recursive) {
+            'group' => function ($a, $b) {
                 $group[$b] = $a;
                 return $group;
             },
@@ -404,19 +400,16 @@ class JsonLogic
             given 0 parameters, return NULL (not great practice, but there was no Else)
             */
             for ($i = 0 ; $i < count($values) - 1 ; $i += 2) {
-                if (static::truthy(static::apply($values[$i], $data, false, true, $originalData))) {
-                    return static::apply($values[$i+1], $data, false, true, $originalData);
+                if (static::truthy(static::apply($values[$i], $data, false, $originalData))) {
+                    return static::apply($values[$i+1], $data, false, $originalData);
                 }
             }
             if (count($values) === $i+1) {
-                return static::apply($values[$i], $data, false, true, $originalData);
+                return static::apply($values[$i], $data, false, $originalData);
             }
             return null;
         } elseif ($op === "filter") {
-            if (!$recursive) {
-                return $data;
-            }
-            $scopedData = static::apply($values[0], $data, false, true, $originalData);
+            $scopedData = static::apply($values[0], $data, false, $originalData);
             $scopedLogic = $values[1];
 
             if (!$scopedData || !is_array($scopedData)) {
@@ -427,11 +420,11 @@ class JsonLogic
             // For parity with JavaScript, reindex the returned array
             return array_values(
                 array_filter($scopedData, function ($datum) use ($scopedLogic, $originalData) {
-                    return static::truthy(static::apply($scopedLogic, $datum, false, true, $originalData));
+                    return static::truthy(static::apply($scopedLogic, $datum, false, $originalData));
                 })
             );
         } elseif ($op === "map") {
-            $scopedData = static::apply($values[0], $data, false, true, $originalData);
+            $scopedData = static::apply($values[0], $data, false, $originalData);
             $scopedLogic = $values[1];
 
             if (!$scopedData || !is_array($scopedData)) {
@@ -440,12 +433,12 @@ class JsonLogic
 
             return array_map(
                 function ($datum) use ($scopedLogic, $originalData) {
-                    return static::apply($scopedLogic, $datum, false, true, $originalData);
+                    return static::apply($scopedLogic, $datum, false, $originalData);
                 },
                 $scopedData
             );
         } elseif ($op === "reduce") {
-            $scopedData = static::apply($values[0], $data, false, true, $originalData);
+            $scopedData = static::apply($values[0], $data, false, $originalData);
             $scopedLogic = $values[1];
             $initial = isset($values[2]) ? $values[2] : null;
 
@@ -458,7 +451,7 @@ class JsonLogic
                 function ($accumulator, $current) use ($scopedLogic, $originalData) {
                     return static::apply(
                         $scopedLogic,
-                        ['current'=>$current, 'accumulator'=>$accumulator], false, true, $originalData
+                        ['current'=>$current, 'accumulator'=>$accumulator], false, $originalData
                     );
                 },
                 $initial
@@ -491,8 +484,8 @@ class JsonLogic
         }
 
         //Recursion!
-        $values = array_map(function ($value) use ($data, $recursive, $originalData) {
-            return self::apply($value, $data, false, $recursive, $originalData);
+        $values = array_map(function ($value) use ($data, $originalData) {
+            return self::apply($value, $data, false, $originalData);
         }, $values);
 
         return call_user_func_array($operation, $values);
