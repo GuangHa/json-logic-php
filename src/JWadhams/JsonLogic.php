@@ -127,9 +127,12 @@ class JsonLogic
                 error_log($a);
                 return $a;
             },
-            'var' => function ($a = null, $default = null, $useOriginalData = false) use ($data, $originalData) {
+            'var' => function ($a = null, $default = null, $useOriginalData = false, $newData = []) use ($data, $originalData) {
                 if ($useOriginalData) {
                     $data = $originalData;
+                }
+                if (!empty($newData)) {
+                    $data = $newData;
                 }
                 if ($a === null or $a === "") {
                     return $data;
@@ -372,6 +375,9 @@ class JsonLogic
                     return count($a);
                 }
                 return 1;
+            },
+            'slice' => function($array, $offset, $length) {
+                return array_slice($array, $offset, $length);
             }
         ];
 
